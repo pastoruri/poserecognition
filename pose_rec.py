@@ -75,6 +75,37 @@ key_joints = {
     30 : "RIGHT_HEEL",
 }
 
+
+possible_edges = [
+    ("LEFT_SHOULDER","RIGHT_SHOULDER"),
+    ("LEFT_SHOULDER","LEFT_HIP"),
+    ("RIGHT_SHOULDER","RIGHT_HIP"),
+    ("LEFT_HIP","RIGHT_HIP"),
+    ("LEFT_SHOULDER", "LEFT_ELBOW"),
+    ("LEFT_ELBOW","LEFT_WRIST"),
+    ("RIGHT_SHOULDER", "RIGHT_ELBOW"),
+    ("RIGHT_ELBOW","RIGHT_WRIST"),
+    ("LEFT_HIP","LEFT_KNEE"),
+    ("LEFT_KNEE","LEFT_ANKLE"),
+    ("RIGHT_HIP","RIGHT_KNEE"),
+    ("RIGHT_KNEE","RIGHT_ANKLE")
+]
+
+possible_edges_idx = [
+    (11,12),
+    (11,23),
+    (12,24),
+    (23,24),
+    (11, 13),
+    (13,15),
+    (12, 14),
+    (14,16),
+    (23,25),
+    (25,27),
+    (24,26),
+    (26,28)
+]
+
 key_joints_idx = [11,12,13,14,15,16,23,24,25,26,27,28,29,30]
 
 visibility_threshold = 0.9
@@ -191,7 +222,7 @@ def find_depth(image1, image2, result1, result2, name_1, name_2, joint_index, jo
 exp = True
 name1 = name2 = None
 im1 = im2 = None
-z_scaling = 0.9
+z_scaling = 20
 
 if not exp:
     name1 = "img1.png"
@@ -220,7 +251,7 @@ if result1 and result2:
             joint = Joint(x,y,z*z_scaling, visibility, idx)
             pose.add_joint(joint)
 
-pose.generate_video(circle_radius, circle_left, circle_right, circle_color, width, height)
+pose.generate_video(circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges)
 
 
 

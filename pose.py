@@ -59,7 +59,7 @@ class Pose:
                     else:
                         cv2.circle(image, (int(joint.x),int(joint.y)), circle_radius,  circle_color  , -1)
                             
-    def project_pose(self, angle, circle_radius, circle_left, circle_right, circle_color, width, height ):
+    def project_pose(self, angle, circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges):
         self.key_point = Point(int(width/2), int(height/2), 0)
         alt_joints = dict(self.joints)
         rad_angle =  math.radians(angle)
@@ -75,6 +75,14 @@ class Pose:
                 
         self.add_circles_independent(blank_rgb1, alt_joints, circle_radius, circle_left, circle_right, circle_color)
         
+
+        for edge in possible_edges:
+            if self.joints[edge[0]] is not None and self.joints[edge[1]] is not None:
+                if self.joints[edge[0]].visibility > self.visibility_threshold and self.joints[edge[1]].visibility > self.visibility_threshold:
+                    cv2.line(blank_rgb1, (int(alt_joints[edge[0]].x) , int(alt_joints[edge[0]].y)), (int(alt_joints[edge[1]].x ), int(alt_joints[edge[1]].y)), circle_color, 10)
+
+
+                
         '''
         cv2.line(blank_rgb1, (int(alt_joints["LEFT_SHOULDER"].x) , int(alt_joints["LEFT_SHOULDER"].y)), (int(alt_joints["RIGHT_SHOULDER"].x ), int(alt_joints["RIGHT_SHOULDER"].y)), circle_color, 10)
         
@@ -92,17 +100,19 @@ class Pose:
         self.img_array.append(blank_rgb1)
         #plt.imshow(blank_rgb1)    
         
-    def generate_video(self, circle_radius, circle_left, circle_right, circle_color, width, height):
+    def generate_video(self, circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges):
         self.img_array = []
 
         for i in range(0,180):
-            self.project_pose(i,circle_radius, circle_left, circle_right, circle_color,width, height)
+            self.project_pose(i,circle_radius, circle_left, circle_right, circle_color,width, height,possible_edges)
 
         codec = cv2.VideoWriter_fourcc(*'mp4v')     
         out = cv2.VideoWriter('video1.mp4',codec, 36, (width,height))
 
         for i in range(len(self.img_array)):
             out.write(self.img_array[i])
+            cv2.imwrite("rotation/" + str(i) + "photo.png" , self.img_array[i])
+
         out.release()
 
 
