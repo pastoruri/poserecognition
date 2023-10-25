@@ -222,15 +222,15 @@ def find_depth(image1, image2, result1, result2, name_1, name_2, joint_index, jo
 exp = True
 name1 = name2 = None
 im1 = im2 = None
-z_scaling = 20
+z_scaling = 30
 
 if not exp:
     name1 = "img1.png"
     name2 = "img2.png"
     im1, im2 = snap_picture(0,1, name1, name2)
 else:
-    name1 = "img1_pose1.png"
-    name2 = "img2_pose1.png"
+    name1 = "img1_pose3.png"
+    name2 = "img2_pose3.png"
     im1 = cv2.imread(name1)
     im2 = cv2.imread(name2)
 
@@ -245,12 +245,14 @@ if result1 and result2:
             z = find_depth(im1,im2,result1, result2, name1, name2, idx, name)
             x = int(result1.pose_landmarks.landmark[idx].x*width)
             y = int(result1.pose_landmarks.landmark[idx].y*height)
+
             visibility = result1.pose_landmarks.landmark[idx].visibility
             print(name, "X:",x,"Y:", y,"Z:",  z)
 
             joint = Joint(x,y,z*z_scaling, visibility, idx)
             pose.add_joint(joint)
 
+pose.normalize_pose(width, height)
 pose.generate_video(circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges)
 
 

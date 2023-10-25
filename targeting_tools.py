@@ -163,7 +163,7 @@ class Camera_Thread:
             if not self.frame_grab_run:
                 break
 
-            # true buffered mode (for files, no loss)
+            # true buffered mode (for files, no loss) 
             if self.buffer_all:
 
                 # buffer is full, pause and loop

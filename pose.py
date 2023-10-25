@@ -43,9 +43,52 @@ class Pose:
         }
         self.key_joints = key_joints
     
+
+
+
     def add_joint(self, joint_ : Joint):
         joint_name = self.key_joints[joint_.id]
         self.joints[joint_name] = joint_
+
+
+
+    def normalize_pose(self, width, height):
+        
+
+        #Alineacion de arista hombro_izq - hombro_der
+        z_tolerance = 10
+        for angle in range(360):
+            self.key_point = Point(int(width/2), int(height/2), 0)
+            alt_joints = dict(self.joints)
+            rad_angle =  math.radians(angle)
+            
+            for name, joint in alt_joints.items():
+                if joint is not None:
+                    new_x= self.key_point.x + (joint.x - self.key_point.x) * math.cos(rad_angle) - (joint.z - self.key_point.z) * math.sin(rad_angle)
+                    new_z = self.key_point.z + (joint.x- self.key_point.x) * math.sin(rad_angle) + (joint.z - self.key_point.z) * math.cos(rad_angle)
+                    new_joint = Joint(new_x, joint.y, new_z, joint.visibility, joint.id)
+                    alt_joints[name] = new_joint 
+            
+            if abs(alt_joints["LEFT_SHOULDER"].z - alt_joints["RIGHT_SHOULDER"].z) <= z_tolerance and alt_joints["LEFT_SHOULDER"].x > alt_joints["RIGHT_SHOULDER"].x:
+                 break
+        self.joints = alt_joints
+
+        key_x = width / 2
+        key_y = height / 2
+        key_z = 0 
+        #key_x = (self.joints["LEFT_SHOULDER"].x + self.joints["RIGHT_SHOULDER"].x)/2
+        #key_y = (self.joints["LEFT_SHOULDER"].y + self.joints["RIGHT_SHOULDER"].y)/2
+        kx = abs(self.joints["LEFT_SHOULDER"].x - self.joints["RIGHT_SHOULDER"].x) / 2
+        key_x = width/2
+        key_z = (self.joints["LEFT_SHOULDER"].z + self.joints["RIGHT_SHOULDER"].z)/2
+
+        for name, joint in self.joints.items():
+            if joint is not None:
+                if joint.visibility > self.visibility_threshold:
+                    joint.z = joint.z - key_z
+                    #joint.x = key_x - joint.x - key_x
+                    #joint.y = joint.y - key_y
+
         
     def add_circles_independent(self, image, joints, circle_radius, circle_left, circle_right, circle_color):
     
@@ -126,4 +169,24 @@ class Pose:
                     cv2.circle(image, (int(joint.x),int(joint.y)), circle_radius,  circle_right  , -1)
                 else:
                  cv2.circle(image, (int(joint.x),int(joint.y)), circle_radius,  circle_color  , -1)
+
+    def joint_distance(self, joint1 : Joint, joint2 : Joint):
+        x1 = joint1.x
+        y1 = joint1.y
+        z1 = joint1.z
+        x2 = joint2.x
+        y2 = joint2.y
+        z2 = joint2.z
+        distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
+        return distance
+
+
+    def normalize(self):
+
+        if self.joints['LEFT_SHOULDER'] is not None and self.joints["RIGHT_SHOULDER"] is not None:
+            if self.joints['LEFT_SHOULDER'].visibility > self.visibility_threshold and self.joints["RIGHT_SHOULDER"].visibility > visibility_threshold:
+                key_distance = 10
+                real_distance = self.joint_distance(self.joints['LEFT_SHOULDER'], self.joints['RIGHT_SHOULDER'])
+
+
                    
