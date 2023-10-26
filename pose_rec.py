@@ -1,9 +1,12 @@
 import cv2
 import mediapipe as mp
 import math
-
+import imageio
+import os
 import numpy as np
 import targeting_tools as tt
+import numpy as np
+from scipy.spatial import cKDTree
 from pose import Pose, Joint
 from matplotlib import pyplot as plt
 
@@ -175,6 +178,21 @@ def snap_picture(idx1,idx2, name_1, name_2):
 
 
 
+def render_video():
+    carpeta_imagenes = 'rotation'
+    nombre_video_salida = 'VIDEO.mp4'
+    fps = 30 
+    nombres_imagenes = sorted([os.path.join(carpeta_imagenes, nombre) for nombre in os.listdir(carpeta_imagenes) if nombre.endswith('.png')])
+
+    video_writer = imageio.get_writer(nombre_video_salida, fps=fps)
+    for nombre_imagen in nombres_imagenes:
+        imagen = imageio.imread(nombre_imagen)
+        video_writer.append_data(imagen)
+    video_writer.close()
+
+
+
+
 
 def find_depth(image1, image2, result1, result2, name_1, name_2, joint_index, joint_name):
 
@@ -217,6 +235,71 @@ def find_depth(image1, image2, result1, result2, name_1, name_2, joint_index, jo
     #cv2.imwrite("depth_" + joint_name + "_" + name_2 , frame2)
     return Z
 
+
+def compare_poses(pose1 : Pose, pose2 : Pose, tolerance):
+    same_pose = True
+    for idx, name in key_joints.items():
+        if pose1.joints[name] is not None and pose2.joints[name] is not None:
+            if pose1.joints[name].visibility > pose1.visibility_threshold and pose2.joints[name].visibility > pose2.visibility_threshold:
+                if pose1.joint_distance(pose1.joints[name], pose2.joints[name]) > tolerance:
+                    same_pose = False
+    return same_pose
+
+
+def map_pose(im1, im2):
+
+    pose = Pose(key_joints, visibility_threshold)
+
+    result1 = obtain_joints(im1, name1)
+    result2 = obtain_joints(im2, name2)
+
+    if result1 and result2:
+        for idx, name in key_joints.items():
+            if result1.pose_landmarks.landmark[idx].visibility > visibility_threshold and result2.pose_landmarks.landmark[idx].visibility > visibility_threshold:
+                z = find_depth(im1,im2,result1, result2, name1, name2, idx, name)
+                x = int(result1.pose_landmarks.landmark[idx].x*width)
+                y = int(result1.pose_landmarks.landmark[idx].y*height)
+
+                visibility = result1.pose_landmarks.landmark[idx].visibility
+                print(name, "X:",x,"Y:", y,"Z:",  z)
+
+                joint = Joint(x,y,z*z_scaling, visibility, idx)
+                pose.add_joint(joint)
+    return pose
+
+
+def KD_distance(pose1 : Pose, pose2 : Pose):
+
+    puntos1 = []
+    puntos2 = []
+    for idx, name in key_joints.items():
+        if pose1.joints[name] is not None and pose2.joints[name] is not None:
+            if pose1.joints[name].visibility > pose1.visibility_threshold and pose2.joints[name].visibility > pose2.visibility_threshold:
+                
+                
+                x1 = pose1.joints[name].x
+                y1 = pose1.joints[name].y
+                z1 = pose1.joints[name].z
+                puntos1.append([x1,y1,z1])
+
+                x2 = pose2.joints[name].x
+                y2 = pose2.joints[name].y
+                z2 = pose2.joints[name].z
+                puntos2.append([x2,y2,z2])
+
+    nube_puntos1 = np.array(puntos1)
+    nube_puntos2 = np.array(puntos2)
+    tree1 = cKDTree(nube_puntos1)
+    tree2 = cKDTree(nube_puntos2)
+    distancias = []
+    for punto1 in puntos1:
+        distancia, _ = tree2.query(punto1)
+        distancias.append(distancia)
+
+    distancia_promedio = np.mean(distancias)
+
+    return distancia_promedio
+
 # FUNCTIONS
 
 exp = True
@@ -229,32 +312,23 @@ if not exp:
     name2 = "img2.png"
     im1, im2 = snap_picture(0,1, name1, name2)
 else:
-    name1 = "img1_pose3.png"
-    name2 = "img2_pose3.png"
+    name1 = "img1_pose2.png"
+    name2 = "img2_pose2.png"
     im1 = cv2.imread(name1)
     im2 = cv2.imread(name2)
 
-pose = Pose(key_joints, visibility_threshold)
+pose1 = map_pose(im1,im2)
+pose1.add_noise(200, 300)
+pose1.normalize_pose(width, height)
+pose1.generate_video(circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges)
 
-result1 = obtain_joints(im1, name1)
-result2 = obtain_joints(im2, name2)
+pose2 = map_pose(im1,im2)
+pose2.normalize_pose(width, height)
+pose2.generate_video(circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges)
 
-if result1 and result2:
-    for idx, name in key_joints.items():
-        if result1.pose_landmarks.landmark[idx].visibility > visibility_threshold and result2.pose_landmarks.landmark[idx].visibility > visibility_threshold:
-            z = find_depth(im1,im2,result1, result2, name1, name2, idx, name)
-            x = int(result1.pose_landmarks.landmark[idx].x*width)
-            y = int(result1.pose_landmarks.landmark[idx].y*height)
-
-            visibility = result1.pose_landmarks.landmark[idx].visibility
-            print(name, "X:",x,"Y:", y,"Z:",  z)
-
-            joint = Joint(x,y,z*z_scaling, visibility, idx)
-            pose.add_joint(joint)
-
-pose.normalize_pose(width, height)
-pose.generate_video(circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges)
+print(compare_poses(pose1,pose2,250))
 
 
+print(KD_distance(pose1,pose2))
 
 
