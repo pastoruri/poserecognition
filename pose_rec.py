@@ -7,6 +7,7 @@ import numpy as np
 import targeting_tools as tt
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.stats import wasserstein_distance
 from pose import Pose, Joint
 from matplotlib import pyplot as plt
 
@@ -300,6 +301,33 @@ def KD_distance(pose1 : Pose, pose2 : Pose):
 
     return distancia_promedio
 
+
+def wasserstein_distance(pose1 , pose2 ):
+
+    puntos1 = []
+    puntos2 = []
+    for idx, name in key_joints.items():
+        if pose1.joints[name] is not None and pose2.joints[name] is not None:
+            if pose1.joints[name].visibility > pose1.visibility_threshold and pose2.joints[name].visibility > pose2.visibility_threshold:
+                
+                
+                x1 = pose1.joints[name].x
+                y1 = pose1.joints[name].y
+                z1 = pose1.joints[name].z
+                puntos1.append([x1,y1,z1])
+
+                x2 = pose2.joints[name].x
+                y2 = pose2.joints[name].y
+                z2 = pose2.joints[name].z
+                puntos2.append([x2,y2,z2])
+
+    nube_puntos1 = np.array(puntos1)
+    nube_puntos2 = np.array(puntos2)
+    
+    distancia_wasserstein = wasserstein_distance(nube_puntos1, nube_puntos2)
+    return distancia_wasserstein
+
+
 # FUNCTIONS
 
 exp = True
@@ -330,5 +358,6 @@ print(compare_poses(pose1,pose2,250))
 
 
 print(KD_distance(pose1,pose2))
+print(wasserstein_distance(pose1,pose2))
 
 
