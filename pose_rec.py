@@ -8,7 +8,7 @@ import targeting_tools as tt
 import numpy as np
 from scipy.spatial import cKDTree
 from scipy.stats import wasserstein_distance
-from pose import Pose, Joint
+from pose import Pose, Joint, Point
 from matplotlib import pyplot as plt
 
 NOSE = 0
@@ -179,19 +179,54 @@ def snap_picture(idx1,idx2, name_1, name_2):
 
 
 
-def render_video():
-    carpeta_imagenes = 'rotation'
-    nombre_video_salida = 'VIDEO.mp4'
-    fps = 30 
-    nombres_imagenes = sorted([os.path.join(carpeta_imagenes, nombre) for nombre in os.listdir(carpeta_imagenes) if nombre.endswith('.png')])
-
-    video_writer = imageio.get_writer(nombre_video_salida, fps=fps)
-    for nombre_imagen in nombres_imagenes:
-        imagen = imageio.imread(nombre_imagen)
-        video_writer.append_data(imagen)
-    video_writer.close()
+def project_poses(poses, circle_radius, circle_left, circle_right, width, height, possible_edges, center = True):
 
 
+    blank1 = cv2.imread("blank.jpg")
+    img_array = []
+
+    for i in range(0,180):
+        blank_rgb1 = cv2.cvtColor(blank1,cv2.COLOR_BGR2RGB)
+        for tupla in poses:
+            
+            pose, circle_color = tupla
+            cx, cy = pose.find_center()
+            pose.key_point = Point(cx,cy,0)
+            alt_joints = dict(pose.joints)
+            rad_angle =  math.radians(i)
+            
+            if center:
+                for name, joint in alt_joints.items():
+                    if joint is not None:
+                        new_x= pose.key_point.x + (joint.x - pose.key_point.x) * math.cos(rad_angle) - (joint.z - pose.key_point.z) * math.sin(rad_angle)
+                        new_z = pose.key_point.z + (joint.x- pose.key_point.x) * math.sin(rad_angle) + (joint.z - pose.key_point.z) * math.cos(rad_angle)
+                        new_joint = Joint(new_x, joint.y, new_z, joint.visibility, joint.id)
+                        alt_joints[name] = new_joint
+            
+            else:
+                for name, joint in alt_joints.items():
+                    if joint is not None:
+                        new_x =  joint.x  * math.cos(rad_angle) - joint.z * math.sin(rad_angle)
+                        new_z = joint.x * math.sin(rad_angle) + joint.z * math.cos(rad_angle)
+                        new_joint = Joint(new_x, joint.y, new_z, joint.visibility, joint.id)
+                        alt_joints[name] = new_joint
+
+            pose.add_circles_independent(blank_rgb1, alt_joints, circle_radius, circle_left, circle_right, circle_color)
+            
+
+            for edge in possible_edges:
+                if pose.joints[edge[0]] is not None and pose.joints[edge[1]] is not None:
+                    if pose.joints[edge[0]].visibility > pose.visibility_threshold and pose.joints[edge[1]].visibility > pose.visibility_threshold:
+                        cv2.line(blank_rgb1, (int(alt_joints[edge[0]].x) , int(alt_joints[edge[0]].y)), (int(alt_joints[edge[1]].x ), int(alt_joints[edge[1]].y)), circle_color, 10)
+            
+        img_array.append(blank_rgb1)
+
+            
+    codec = cv2.VideoWriter_fourcc(*'mp4v')     
+    out = cv2.VideoWriter('video1.mp4',codec, 36, (width,height))
+    for i in range(len(img_array)):
+        out.write(img_array[i])
+    out.release()
 
 
 
@@ -302,11 +337,13 @@ def KD_distance(pose1 : Pose, pose2 : Pose):
     return distancia_promedio
 
 
-def wasserstein_distance(pose1 , pose2 ):
+def wasserstein_pose_distance(pose1 , pose2 ):
 
     puntos1 = []
     puntos2 = []
     for idx, name in key_joints.items():
+        print(pose1.joints[name])
+        
         if pose1.joints[name] is not None and pose2.joints[name] is not None:
             if pose1.joints[name].visibility > pose1.visibility_threshold and pose2.joints[name].visibility > pose2.visibility_threshold:
                 
@@ -320,11 +357,13 @@ def wasserstein_distance(pose1 , pose2 ):
                 y2 = pose2.joints[name].y
                 z2 = pose2.joints[name].z
                 puntos2.append([x2,y2,z2])
-
+        
     nube_puntos1 = np.array(puntos1)
     nube_puntos2 = np.array(puntos2)
+
+    print("LEN: " + str(len(nube_puntos2)), nube_puntos2)
     
-    distancia_wasserstein = wasserstein_distance(nube_puntos1, nube_puntos2)
+    distancia_wasserstein = wasserstein_distance(nube_puntos1.flatten(), nube_puntos2.flatten())
     return distancia_wasserstein
 
 
@@ -332,7 +371,7 @@ def wasserstein_distance(pose1 , pose2 ):
 
 exp = True
 name1 = name2 = None
-im1 = im2 = None
+im1 = im2 = im11 = im22 =None
 z_scaling = 30
 
 if not exp:
@@ -345,19 +384,39 @@ else:
     im1 = cv2.imread(name1)
     im2 = cv2.imread(name2)
 
-pose1 = map_pose(im1,im2)
-pose1.add_noise(200, 300)
-pose1.normalize_pose(width, height)
-pose1.generate_video(circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges)
+    name11 = "img1_pose1.png"
+    name22 = "img2_pose1.png"
+    im11 = cv2.imread(name11)
+    im22 = cv2.imread(name22)
 
-pose2 = map_pose(im1,im2)
+
+    name111 = "img1_pose3.png"
+    name222 = "img2_pose3.png"
+    im111 = cv2.imread(name111)
+    im222 = cv2.imread(name222)
+
+    
+
+pose1 = map_pose(im1,im2)
+pose1.normalize_pose(width, height)
+
+pose2 = map_pose(im11,im22)
 pose2.normalize_pose(width, height)
-pose2.generate_video(circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges)
+
+pose3 = map_pose(im111,im222)
+pose3.normalize_pose(width, height)
+
 
 print(compare_poses(pose1,pose2,250))
-
-
 print(KD_distance(pose1,pose2))
-print(wasserstein_distance(pose1,pose2))
+print(wasserstein_pose_distance(pose1,pose2))
+
+
+pose_array = [
+              (pose1, (0, 0, 255)),
+              (pose2, (255, 0, 0)  ),
+              (pose3, (0,255,0))
+              ]
+project_poses(pose_array, 15, circle_left, circle_right, width, height, possible_edges)
 
 
