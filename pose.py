@@ -97,12 +97,8 @@ class Pose:
         
 
         c_x, c_y = self.find_center()
-        key_x = width / 2
         key_y = height / 2
         key_z = 0 
-        #key_x = (self.joints["LEFT_SHOULDER"].x + self.joints["RIGHT_SHOULDER"].x)/2
-        #key_y = (self.joints["LEFT_SHOULDER"].y + self.joints["RIGHT_SHOULDER"].y)/2
-        kx = abs(self.joints["LEFT_SHOULDER"].x - self.joints["RIGHT_SHOULDER"].x) / 2
         key_x = width/2
         key_z = (self.joints["LEFT_SHOULDER"].z + self.joints["RIGHT_SHOULDER"].z)/2
 

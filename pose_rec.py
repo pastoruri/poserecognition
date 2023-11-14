@@ -6,6 +6,8 @@ import os
 import numpy as np
 import targeting_tools as tt
 import numpy as np
+import random
+import pickle
 from scipy.spatial import cKDTree
 from scipy.stats import wasserstein_distance
 from pose import Pose, Joint, Point
@@ -367,12 +369,23 @@ def wasserstein_pose_distance(pose1 , pose2 ):
     return distancia_wasserstein
 
 
+
+def save_poses(colection,file):
+    with open(file, 'wb') as serialized:
+        pickle.dump(colection, serialized)
+
+def load_poses(file):
+    with open(file, 'rb') as serialized:
+        return pickle.load(serialized)
+
 # FUNCTIONS
 
 exp = True
 name1 = name2 = None
 im1 = im2 = im11 = im22 =None
 z_scaling = 30
+saved_poses = 'poses.pkl'
+poses = load_poses(saved_poses)
 
 if not exp:
     name1 = "img1.png"
@@ -399,24 +412,31 @@ else:
 
 pose1 = map_pose(im1,im2)
 pose1.normalize_pose(width, height)
+#poses.append(pose1)
 
-pose2 = map_pose(im11,im22)
-pose2.normalize_pose(width, height)
+if exp:
+    pose2 = map_pose(im11,im22)
+    pose2.normalize_pose(width, height)
+    poses.append(pose2)
 
-pose3 = map_pose(im111,im222)
-pose3.normalize_pose(width, height)
+    pose3 = map_pose(im111,im222)
+    pose3.normalize_pose(width, height)
+    poses.append(pose3)
+
+#save_poses(poses,saved_poses)
 
 
-print(compare_poses(pose1,pose2,250))
-print(KD_distance(pose1,pose2))
-print(wasserstein_pose_distance(pose1,pose2))
+# print(compare_poses(pose1,pose2,250))
+# print(KD_distance(pose2,pose3))
+# print("WASSERSTEIN",wasserstein_pose_distance(pose3,pose2))
+
+pose_array = []
+
+for pose in poses:
+    pose_array.append((pose, ( random.randint(0,255),random.randint(0,255),random.randint(0,255) ) ))
 
 
-pose_array = [
-              (pose1, (0, 0, 255)),
-              (pose2, (255, 0, 0)  ),
-              (pose3, (0,255,0))
-              ]
+
 project_poses(pose_array, 15, circle_left, circle_right, width, height, possible_edges)
 
 
