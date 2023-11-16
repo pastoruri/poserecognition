@@ -12,6 +12,14 @@ from scipy.spatial import cKDTree
 from scipy.stats import wasserstein_distance
 from pose import Pose, Joint, Point
 from matplotlib import pyplot as plt
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.image import Image
+from kivy.uix.button import Button
+from kivy.uix.video import Video
+from kivy.uix.camera import Camera
+from kivy.uix.videoplayer import VideoPlayer
+from pose_rec import *
 
 NOSE = 0
 LEFT_EYE_INNER = 1
@@ -49,7 +57,11 @@ RIGHT_FOOT_INDEX = 32
 
 width = 1920
 height = 1080
-  
+exp = True
+name1 = name2 = None
+im1 = im2 = im11 = im22 =None
+z_scaling = 30
+
 total_joints = {
     0 : "NOSE", 1 : "LEFT_EYE_INNER",2 : "LEFT_EYE",3 : "LEFT_EYE_OUTER",
     4 : "RIGHT_EYE_INNER",5 : "RIGHT_EYE",6 : "RIGHT_EYE_OUTER",
@@ -151,7 +163,7 @@ def obtain_joints(image, image_name):
                 if visibility > visibility_threshold:
                     cv2.circle(image_rgb, (x1,y1), circle_radius, circle_color , -1)   
 
-            cv2.imwrite("marked_" + image_name , image_rgb)
+            #cv2.imwrite("marked_" + image_name , image_rgb)
             
             return result
 
@@ -181,7 +193,7 @@ def snap_picture(idx1,idx2, name_1, name_2):
 
 
 
-def project_poses(poses, circle_radius, circle_left, circle_right, width, height, possible_edges, center = True):
+def project_poses(poses, circle_radius, circle_left, circle_right, width, height, possible_edges, video_name, center = True):
 
 
     blank1 = cv2.imread("blank.jpg")
@@ -225,7 +237,7 @@ def project_poses(poses, circle_radius, circle_left, circle_right, width, height
 
             
     codec = cv2.VideoWriter_fourcc(*'mp4v')     
-    out = cv2.VideoWriter('video1.mp4',codec, 36, (width,height))
+    out = cv2.VideoWriter(video_name,codec, 36, (width,height))
     for i in range(len(img_array)):
         out.write(img_array[i])
     out.release()
@@ -284,7 +296,7 @@ def compare_poses(pose1 : Pose, pose2 : Pose, tolerance):
     return same_pose
 
 
-def map_pose(im1, im2):
+def map_pose(im1, im2, name1, name2):
 
     pose = Pose(key_joints, visibility_threshold)
 
@@ -366,77 +378,181 @@ def wasserstein_pose_distance(pose1 , pose2 ):
     print("LEN: " + str(len(nube_puntos2)), nube_puntos2)
     
     distancia_wasserstein = wasserstein_distance(nube_puntos1.flatten(), nube_puntos2.flatten())
+    print(distancia_wasserstein)
     return distancia_wasserstein
 
 
 
 def save_poses(colection,file):
+    print("LARGO", len(colection))
     with open(file, 'wb') as serialized:
         pickle.dump(colection, serialized)
 
 def load_poses(file):
-    with open(file, 'rb') as serialized:
-        return pickle.load(serialized)
-
-# FUNCTIONS
-
-exp = True
-name1 = name2 = None
-im1 = im2 = im11 = im22 =None
-z_scaling = 30
-saved_poses = 'poses.pkl'
-poses = load_poses(saved_poses)
-
-if not exp:
-    name1 = "img1.png"
-    name2 = "img2.png"
-    im1, im2 = snap_picture(0,1, name1, name2)
-else:
-    name1 = "img1_pose2.png"
-    name2 = "img2_pose2.png"
-    im1 = cv2.imread(name1)
-    im2 = cv2.imread(name2)
-
-    name11 = "img1_pose1.png"
-    name22 = "img2_pose1.png"
-    im11 = cv2.imread(name11)
-    im22 = cv2.imread(name22)
+    if os.path.exists(file):    
+        with open(file, 'rb') as serialized:
+            return pickle.load(serialized)
+    else:
+        return []
 
 
-    name111 = "img1_pose3.png"
-    name222 = "img2_pose3.png"
-    im111 = cv2.imread(name111)
-    im222 = cv2.imread(name222)
+
+class MyApp(App):
+    def build(self):
+        self.current_pose = None
+        self.pose_array = []
+        self.saved_poses = 'poses.pkl'
+        self.poses = load_poses(self.saved_poses)
+        # Diseño principal
+        self.layout_principal = BoxLayout(orientation='vertical', spacing=10, padding=10)
+
+        # Sub-layouts para las dos secciones superiores
+        self.layout_superior = BoxLayout(orientation='horizontal', spacing=10)
+        self.layout_izquierdo = BoxLayout(orientation='vertical', spacing=10)
+        self.layout_derecho = BoxLayout(orientation='vertical', spacing=10)
+
+        # Placeholder para la imagen de la webcam
+        cam_webcam = Camera(play=True)
+        self.layout_izquierdo.add_widget(cam_webcam)
+
+        # Video en el cuadro derecho
+        video_source = 'video1.mp4'  # Reemplaza con la ruta de tu video
+        self.video = Video(source=video_source, state='play', options={'eos': 'loop'}, size_hint=(1, 1))
+        self.layout_derecho.add_widget(self.video)
+
+        # Botones en la parte inferior con orientación horizontal
+        self.layout_botones = BoxLayout(orientation='horizontal', spacing=10)
+        btn_funcion_1 = Button(text='Record Pose', on_press=self.map_pose_gui)
+        btn_funcion_2 = Button(text='Save Pose', on_press=self.save_pose)
+        btn_funcion_3 = Button(text='Match Pose', on_press=self.match_pose)
+
+        # Agregar widgets a los layouts
+        self.layout_superior.add_widget(self.layout_izquierdo)
+        self.layout_superior.add_widget(self.layout_derecho)
+
+        self.layout_botones.add_widget(btn_funcion_1)
+        self.layout_botones.add_widget(btn_funcion_2)
+        self.layout_botones.add_widget(btn_funcion_3)
+
+        self.layout_principal.add_widget(self.layout_superior)
+        self.layout_principal.add_widget(self.layout_botones)
+
+        return self.layout_principal
+
+    def map_pose_gui(self, instance):
+        name1 = None
+        name2 = None
+        im1 = im2 = None
+        pose1 = None
+        if not exp:
+            name1 = "img1.png"
+            name2 = "img2.png"
+            im1, im2 = snap_picture(0,1, name1, name2)
+            pose1 = map_pose(im1,im2, name1, name2)
+        else:
+            name1 = "img1_pose2.png"
+            name2 = "img2_pose2.png"
+            im1 = cv2.imread(name1)
+            im2 = cv2.imread(name2)
+            pose1 = map_pose(im1,im2, "test_record_im1.png", "test_record_im1,png")
+        
+        
+        
+        pose1.normalize_pose(width, height)
+        video_name =  "curr_pose.mp4"
+        pose1.generate_video(15, circle_left, circle_right, circle_color,width, height, possible_edges, video_name)
+        #video1 = Video(source=video_name, state='play', options={'eos': 'loop'}, size_hint=(1, 1))
+        self.current_pose = pose1
+
+        self.layout_derecho.remove_widget(self.video)
+        self.video = Video(source=video_name, state='play', options={'eos': 'loop'}, size_hint=(1, 1))
+        self.layout_derecho.add_widget(self.video)
+       
+        
+
+
+    def save_pose(self, instance):
+        self.poses.append(self.current_pose)
+        save_poses(self.poses, self.saved_poses)
+
+    def toggle_pose_vision(self, instance):
+        print("Función 2 activada")
+
+    def match_pose(self, instance):
+        
+        print("LARGO", len(self.poses))
+        self.current_pose.add_noise(50,150)
+        
+        mindis = wasserstein_pose_distance(self.poses[0], self.current_pose)
+        ind_counter = 0
+        match_index = 0
+
+        for pose in self.poses:
+            distance = wasserstein_pose_distance(pose, self.current_pose)
+            if distance < mindis:
+                mindis = distance
+                match_index = ind_counter
+            ind_counter += 1
+
+        if match_index is not None:
+            col1 = ( random.randint(0,255),random.randint(0,255), random.randint(0,255) )
+            col2 = ( random.randint(0,255),random.randint(0,255),random.randint(0,255) )
+
+            pose_array = [(self.poses[match_index],col1), (self.current_pose,col2)]
+            video_name = "match.mp4"
+            print("LLEGO A")
+            project_poses(pose_array, 15, circle_left, circle_right, width, height, possible_edges, video_name )
+
+            self.layout_derecho.remove_widget(self.video)
+            self.video = Video(source=video_name, state='play', options={'eos': 'loop'}, size_hint=(1, 1))
+            self.layout_derecho.add_widget(self.video)
+
+
+
+            
+
+
+
 
     
 
-pose1 = map_pose(im1,im2)
-pose1.normalize_pose(width, height)
-#poses.append(pose1)
-
-if exp:
-    pose2 = map_pose(im11,im22)
-    pose2.normalize_pose(width, height)
-    poses.append(pose2)
-
-    pose3 = map_pose(im111,im222)
-    pose3.normalize_pose(width, height)
-    poses.append(pose3)
-
-#save_poses(poses,saved_poses)
 
 
-# print(compare_poses(pose1,pose2,250))
-# print(KD_distance(pose2,pose3))
-# print("WASSERSTEIN",wasserstein_pose_distance(pose3,pose2))
-
-pose_array = []
-
-for pose in poses:
-    pose_array.append((pose, ( random.randint(0,255),random.randint(0,255),random.randint(0,255) ) ))
+# FUNCTIONS
 
 
 
-project_poses(pose_array, 15, circle_left, circle_right, width, height, possible_edges)
+# if not exp:
+#     name1 = "img1.png"
+#     name2 = "img2.png"
+#     im1, im2 = snap_picture(0,1, name1, name2)
+# else:
+#     name1 = "img1_pose2.png"
+#     name2 = "img2_pose2.png"
+#     im1 = cv2.imread(name1)
+#     im2 = cv2.imread(name2)
+
+#     name11 = "img1_pose1.png"
+#     name22 = "img2_pose1.png"
+#     im11 = cv2.imread(name11)
+#     im22 = cv2.imread(name22)
 
 
+#     name111 = "img1_pose3.png"
+#     name222 = "img2_pose3.png"
+#     im111 = cv2.imread(name111)
+#     im222 = cv2.imread(name222)
+
+
+
+#JOINT POSE VIDEO
+# for pose in poses:
+#     pose_array.append((pose, ( random.randint(0,255),random.randint(0,255),random.randint(0,255) ) ))
+
+
+
+# project_poses(pose_array, 15, circle_left, circle_right, width, height, possible_edges)
+
+
+if __name__ == '__main__':
+    MyApp().run()

@@ -189,14 +189,14 @@ class Pose:
         self.img_array.append(blank_rgb1)
         #plt.imshow(blank_rgb1)    
         
-    def generate_video(self, circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges):
+    def generate_video(self, circle_radius, circle_left, circle_right, circle_color, width, height, possible_edges, name):
         self.img_array = []
 
         for i in range(0,180):
             self.project_pose(i,circle_radius, circle_left, circle_right, circle_color,width, height,possible_edges)
 
         codec = cv2.VideoWriter_fourcc(*'mp4v')     
-        out = cv2.VideoWriter('video1.mp4',codec, 36, (width,height))
+        out = cv2.VideoWriter(name,codec, 36, (width,height))
 
         for i in range(len(self.img_array)):
             out.write(self.img_array[i])
